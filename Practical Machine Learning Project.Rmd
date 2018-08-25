@@ -1,0 +1,97 @@
+---
+title: "Practical Machine Learning Project"
+author: "Yash Prakash"
+date: "25 August 2018"
+output: html_document
+---
+
+# Data Analysis of Weight Lifting Exercises Dataset
+
+## About the data
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (precisely, the section on the 'Weight Lifting Exercise Dataset').
+
+## Objective
+The goal of this project is to predict the manner in which the participants did the exercise. The 'classe' variable ranges from 'A' to 'E', which will be predicted for the test dataset.
+
+## Loading the libraries needed
+```{r}
+library(ggplot2)
+library(lattice)
+library(caret)
+```
+
+## Loading the data
+```{r}
+training<-read.csv('pml-training.csv',header=T)
+testing<-read.csv('pml-testing.csv',header=T)
+set.seed(12345)
+```
+
+## Data pre-processing
+We see that the dataset contains a large number of non-useful arrtibutes that need not be used to train the model or predict from the model, like the name attribute, the time attribute, etc. We also need to remove the 'na' columns. We also convert the columns needed for the training of the model into factor variables.
+```{r}
+training<-training[,colSums(is.na(training)) == 0]
+i1 <- sapply(training,function(x)is.factor(x)&&length(levels(x))!=5)
+training<-training[,!i1]
+training<-training[,4:57]
+```
+
+We do the same for the test dataset.
+```{r}
+testing<-testing[,colSums(is.na(testing)) == 0]
+i1 <- sapply(testing,function(x)is.factor(x)&&length(levels(x))!=5)
+testing<-testing[,!i1]
+testing<-testing[4:57]
+```
+
+## Partitioning the data
+We will be using 'Random Forest' to get maximum accuracy for the model, thus we resample the data.
+
+Hence, we take the total training set and out of the total 19622 observations, we randomly sample 5000 observations into the train set and 1000 observations into the test set, achieving a 80:20 ratio for the data. 
+
+```{r}
+trainRows <- sample(nrow(training), 5000)
+train <- training[trainRows,]
+nrow(train)
+ncol(train)
+
+testPre<-training[-trainRows,]
+testRows <- sample(nrow(testPre), 1000)
+test<- testPre[testRows,]
+nrow(test)
+ncol(test)
+```
+
+## Fitting the model
+Using the train function, method 'rf', we now fit the model.
+```{r}
+trainctrl <- trainControl(verboseIter = TRUE)
+modFit<-train(classe~ .,data=train,method="rf",proxy=T, trControl = trainctrl)
+```
+
+## Comparing the results
+We now predict the test set we sampled from the fitted model.
+```{r}
+predictTest<-predict(modFit,test)
+table(test$classe, predictTest)
+```
+
+## We now draw the confusion matrix for the data to get the accuracy of the model. 
+```{r}
+confMat <- confusionMatrix(modFit)
+confMat
+```
+We get about 98% accuracy with the model.
+
+## We now use the same model to get the prediction on the test dataset we obtained from the website. The dataset consists of 20 observations and our model will predict the class for each one.
+```{r}
+prediction<-predict(modFit,testing)
+table(prediction, 1:20)
+```
+This is the final prediction for all the 20 observations.
+
+## Finally, we can see the plot for the model.
+```{r}
+plot(modFit$finalModel,log="y",main="Final model log plot")
+```
+
